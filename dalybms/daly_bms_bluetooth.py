@@ -42,8 +42,13 @@ class DalyBMSBluetooth(DalyBMS):
             pass
         self.client = BleakClient(mac_address)
         await self.client.connect()
-        await self.client.start_notify(17, self._notification_callback)
-        await self.client.write_gatt_char(48, bytearray(b""))
+        try :
+            self._dongle_version="old17"
+            await self.client.start_notify(17, self._notification_callback)
+            await self.client.write_gatt_char(48, bytearray(b""))
+        except :
+            self._dongle_version="new"
+            await self.client.start_notify('0000fff1-0000-1000-8000-00805f9b34fb', self._notification_callback)
 
     async def disconnect(self):
         """
@@ -113,7 +118,8 @@ class DalyBMSBluetooth(DalyBMS):
             self.logger.info("Connecting...")
             await self.client.connect()
 
-        await self.client.write_gatt_char(15, value)
+        if self._dongle_version == "old17" : await self.client.write_gatt_char(15, value)
+        if self._dongle_version == "new" : await self.client.write_gatt_char('0000fff2-0000-1000-8000-00805f9b34fb', value)
         self.logger.debug("Waiting...")
         try:
             result = await asyncio.wait_for(self.response_cache[command]["future"], 5)
