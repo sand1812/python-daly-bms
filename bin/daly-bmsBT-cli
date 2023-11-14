@@ -41,6 +41,11 @@ class DalyBMSConnection():
            await self.connect()
         return await self.bt_bms.get_soc()
 
+    async def set_soc(self, soc):
+        if not self.connected:
+           await self.connect()
+        return await self.bt_bms.set_soc(soc)
+    
     async def get_mosfet(self):
         if not self.connected:
            await self.connect()
@@ -98,6 +103,8 @@ parser.add_argument("--errors", help="show BMS errors", action="store_true")
 parser.add_argument("--all", help="show all", action="store_true")
 parser.add_argument("--check", help="Nagios style check", action="store_true")
 parser.add_argument("--set-discharge-mosfet", help="'on' or 'off'", type=str)
+parser.add_argument("--set-soc", help="'0.0' to '100.0'", type=str)
+
 parser.add_argument("--retry", help="retry X times if the request fails, default 5", type=int, default=5)
 parser.add_argument("--verbose", help="Verbose output", action="store_true")
 
@@ -334,6 +341,17 @@ if args.set_discharge_mosfet:
 
         result = asyncio.run(bms.set_discharge_mosfet(on=on))
 
+
+if args.set_soc:
+    try :
+        v = float(args.set_soc)
+    except :
+        print("invalid value '%s', expected float value betwen 0 and 100" % args.set_soc)
+        sys.exit(1)
+
+    result = asyncio.run(bms.set_soc(v))
+
+        
 if mqtt_client:
     mqtt_client.disconnect()
     mqtt_client.loop_stop()

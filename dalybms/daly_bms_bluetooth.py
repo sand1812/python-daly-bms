@@ -58,12 +58,13 @@ class DalyBMSBluetooth(DalyBMS):
         await self.client.disconnect()
         self.logger.info("Bluetooth Disconnected")
 
-    async def _read_request(self, command, max_responses=1):
+    async def _read_request(self, command, extra="", max_responses=1):
         response_data = None
         x = None
         for x in range(0, self.request_retries):
             response_data = await self._read(
                 command=command,
+                extra=extra,
                 max_responses=max_responses)
             if not response_data:
                 self.logger.debug("%x. try failed, retrying..." % (x + 1))
@@ -75,14 +76,14 @@ class DalyBMSBluetooth(DalyBMS):
             return False
         return response_data
 
-    async def _read(self, command, max_responses=1):
+    async def _read(self, command, extra="", max_responses=1):
         self.logger.debug("-- %s ------------------------" % command)
         self.response_cache[command] = {"queue": [],
                                         "future": asyncio.Future(),
                                         "max_responses": max_responses,
                                         "done": False}
 
-        message_bytes = self._format_message(command)
+        message_bytes = self._format_message(command,extra=extra)
         result = await self._async_char_write(command, message_bytes)
         self.logger.debug("got %s" % result)
         if not result:
@@ -172,6 +173,16 @@ class DalyBMSBluetooth(DalyBMS):
         response_data = await self._read_request("97")
         return super().get_errors(response_data=response_data)
 
+    # Set SoC. Value is float from 0.0 to 100.0
+    async def set_soc(self, value):
+        v = round(value*10.0)
+        if v > 1000 : v = 1000
+        if v < 0 : v = 0
+        extra='000000000000%0.4X' % v
+        response_data = await self._read_request("21", extra=extra)
+        self.logger.info(response_data.hex())
+    
+    
     async def get_all(self):
         return {
             "soc": await self.get_soc(),
