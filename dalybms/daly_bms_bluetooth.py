@@ -166,8 +166,6 @@ class DalyBMSBluetooth(DalyBMS):
         max_responses = self._calc_num_responses(status_field="cell_voltages")
         if not max_responses:
             return
-        print("XOXOXO - max = %d" % max_responses)
-        max_responses=6
         response_data = await self._read_request("95", max_responses=max_responses)
 
         return super().get_cell_voltages(response_data=response_data)

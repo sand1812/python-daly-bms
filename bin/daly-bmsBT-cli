@@ -66,6 +66,11 @@ class DalyBMSConnection():
            await self.connect()
         return await self.bt_bms.get_errors()
 
+    async def get_cell_voltages(self):
+        if not self.connected:
+            await self.connect()
+        return await self.bt_bms.get_cell_voltages()
+    
     async def get_all(self):
         if not self.connected:
            await self.connect()
