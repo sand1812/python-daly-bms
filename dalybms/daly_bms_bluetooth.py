@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import asyncio
 import subprocess
 import logging
@@ -29,15 +30,18 @@ class DalyBMSBluetooth(DalyBMS):
         """
         try:
             """
-            When an earlier execution of the script crashed, the connection to the devices stays open and future 
+            When an earlier execution of the script crashed, the connection to the devices stays open and future
             connection attempts would fail with this error:
             bleak.exc.BleakError: Device with address AA:BB:CC:DD:EE:FF was not found.
             see https://github.com/hbldh/bleak/issues/367
             """
+            out = subprocess.check_output("rfkill unblock bluetooth", shell = True)
             open_blue = subprocess.Popen(["bluetoothctl"], shell=True, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
             open_blue.communicate(b"disconnect %s\n" % mac_address.encode('utf-8'))
             open_blue.kill()
+
+
         except:
             pass
         self.client = BleakClient(mac_address)
@@ -49,6 +53,7 @@ class DalyBMSBluetooth(DalyBMS):
         except :
             self._dongle_version="new"
             await self.client.start_notify('0000fff1-0000-1000-8000-00805f9b34fb', self._notification_callback)
+        
 
     async def disconnect(self):
         """
@@ -60,7 +65,7 @@ class DalyBMSBluetooth(DalyBMS):
 
     async def _read_request(self, command, extra="", max_responses=1):
         response_data = None
-        x = None
+        x = 0
         for x in range(0, self.request_retries):
             response_data = await self._read(
                 command=command,
@@ -94,15 +99,17 @@ class DalyBMSBluetooth(DalyBMS):
             return result
 
     def _notification_callback(self, handle, data):
-        self.logger.debug("%s %s %s" % (handle, repr(data), len(data)))
+        self.logger.debug(f'Notify callback. Handle: {handle}, Data Length: {len(data)}, Data: {data}')
         responses = []
-        if len(data) == 13:
-            responses.append(data)
-        elif len(data) == 26:
-            responses.append(data[0:13])
-            responses.append(data[13:])
-        else:
-            self.logger.error(len(data), "bytes received, not 13 or 26, not implemented")
+
+        num_frames = int(len(data) / 13)
+        if num_frames == 0:
+            self.logger.debug(f"{len(data)} bytes received, not enough for a data frame, discarding")
+
+        for frame_start in range(0, num_frames*13, 13):
+            # check that the data frame is properly formatted:
+            if data[frame_start] == 0xa5 and data[frame_start + 1] == 0x01 and data[frame_start + 3] == 0x08:
+                responses.append(data[frame_start:frame_start+13])
 
         for response_bytes in responses:
             command = response_bytes[2:3].hex()
@@ -141,7 +148,7 @@ class DalyBMSBluetooth(DalyBMS):
 
     async def get_max_min_temperature(self, response_data=None):
         response_data = await self._read_request("92")
-        return super().get_max_min_temperature(response_data=response_data)
+        return super().get_temperature_range(response_data=response_data)
 
     async def get_mosfet_status(self, response_data=None):
         response_data = await self._read_request("93")
@@ -152,25 +159,34 @@ class DalyBMSBluetooth(DalyBMS):
         return super().get_status(response_data=response_data)
 
     async def get_cell_voltages(self, response_data=None):
+        # required to get the number of cells
         if not self.status:
             await self.get_status()
-        max_responses = self._calc_cell_voltage_responses()
+
+        max_responses = self._calc_num_responses(status_field="cell_voltages")
         if not max_responses:
             return
+        print("XOXOXO - max = %d" % max_responses)
+        max_responses=6
         response_data = await self._read_request("95", max_responses=max_responses)
 
         return super().get_cell_voltages(response_data=response_data)
 
     async def get_temperatures(self, response_data=None):
-        response_data = await self._read_request("95")
+
+        max_responses = self._calc_num_responses(status_field="temperatures")
+        if not max_responses:
+            return
+
+        response_data = await self._read_request("96", max_responses=max_responses)
         return super().get_temperatures(response_data=response_data)
 
     async def get_balancing_status(self, response_data=None):
-        response_data = await self._read_request("96")
+        response_data = await self._read_request("97")
         return super().get_balancing_status(response_data=response_data)
 
     async def get_errors(self, response_data=None):
-        response_data = await self._read_request("97")
+        response_data = await self._read_request("98")
         return super().get_errors(response_data=response_data)
 
     # Set SoC. Value is float from 0.0 to 100.0
@@ -181,13 +197,13 @@ class DalyBMSBluetooth(DalyBMS):
         extra='000000000000%0.4X' % v
         response_data = await self._read_request("21", extra=extra)
         self.logger.info(response_data.hex())
-    
+
     
     async def get_all(self):
         return {
             "soc": await self.get_soc(),
             "cell_voltage_range": await self.get_cell_voltage_range(),
-            "temperature_range": await self.get_temperature_range(),
+            "temperature_range": await self.get_max_min_temperature(),
             "mosfet_status": await self.get_mosfet_status(),
             "status": await self.get_status(),
             "cell_voltages": await self.get_cell_voltages(),

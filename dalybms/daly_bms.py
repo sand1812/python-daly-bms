@@ -241,7 +241,7 @@ class DalyBMS:
         self.status = data
         return data
 
-    def _calc_num_responses(self, status_field, num_per_frame):
+    def _calc_num_responses(self, status_field, num_per_frame=3):
         if not self.status:
             self.logger.error("get_status has to be called at least once before calling get_cell_voltages")
             return False
@@ -250,7 +250,8 @@ class DalyBMS:
         if self.address == 8:
             # via Bluetooth the BMS returns all frames, even when they don't have data
             if status_field == 'cell_voltages':
-                max_responses = 16
+                #max_responses = 16
+                max_responses = math.ceil(self.status['cells'] / float(num_per_frame))
             elif status_field == 'temperatures':
                 max_responses = 3
             else:
