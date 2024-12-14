@@ -1,9 +1,12 @@
 #!/usr/bin/python3
 import pathlib
 from setuptools import setup
+from pip._internal.req import parse_requirements
 
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
+REQUIREMENTS = [i.strip() for i in open("requirements.txt").readlines()]
+
 
 setup(
     name="dalybms",
@@ -24,4 +27,6 @@ setup(
     ],
     packages=["dalybms"],
     scripts=["bin/daly-bms-cli","bin/daly-bmsBT-cli"],
+    install_requires=REQUIREMENTS,
+    
 )
