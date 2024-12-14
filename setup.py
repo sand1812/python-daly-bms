@@ -23,5 +23,5 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     packages=["dalybms"],
-    scripts=["bin/daly-bms-cli"],
+    scripts=["bin/daly-bms-cli","bin/daly-bmsBT-cli"],
 )
