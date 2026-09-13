@@ -146,7 +146,7 @@ class DalyBMSBluetooth(DalyBMS):
         response_data = await self._read_request("91")
         return super().get_cell_voltage_range(response_data=response_data)
 
-    async def get_max_min_temperature(self, response_data=None):
+    async def get_temperature_range(self, response_data=None):
         response_data = await self._read_request("92")
         return super().get_temperature_range(response_data=response_data)
 
@@ -201,7 +201,7 @@ class DalyBMSBluetooth(DalyBMS):
         return {
             "soc": await self.get_soc(),
             "cell_voltage_range": await self.get_cell_voltage_range(),
-            "temperature_range": await self.get_max_min_temperature(),
+            "temperature_range": await self.get_temperature_range(),
             "mosfet_status": await self.get_mosfet_status(),
             "status": await self.get_status(),
             "cell_voltages": await self.get_cell_voltages(),
