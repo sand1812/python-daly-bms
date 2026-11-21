@@ -263,18 +263,23 @@ class DalyBMS:
         return max_responses
 
     def _split_frames(self, response_data, status_field, structure):
-        values = {}
-        x = 1
+        """The values of the frames (numbered from 1), or None when some are missing. Frames are put
+        back in order by their number, a frame received twice counted once."""
+        frames = {}
         for response_bytes in response_data:
             parts = struct.unpack(structure, response_bytes)
-            if parts[0] != x:
-                self.logger.warning("frame out of order, expected %i, got %i" % (x, response_bytes[0]))
-                continue
-            for value in parts[1:]:
+            frames.setdefault(parts[0], parts[1:])
+        values = {}
+        for number in range(1, len(frames) + 1):
+            if number not in frames:
+                self.logger.warning("frame %i missing, got frames %s" % (number, sorted(frames)))
+                return None
+            for value in frames[number]:
                 values[len(values) + 1] = value
                 if len(values) == self.status[status_field]:
                     return values
-            x += 1
+        self.logger.warning("%i %s expected, %i received" % (self.status[status_field], status_field, len(values)))
+        return None
 
     def get_cell_voltages(self, response_data=None):
         if not response_data:
@@ -286,6 +291,8 @@ class DalyBMS:
             return False
 
         cell_voltages = self._split_frames(response_data=response_data, status_field="cells", structure=">b 3h x")
+        if cell_voltages is None:
+            return False
         for id in cell_voltages:
             cell_voltages[id] = cell_voltages[id] / 1000
         return cell_voltages
@@ -302,6 +309,8 @@ class DalyBMS:
 
         temperatures = self._split_frames(response_data=response_data, status_field="temperature_sensors",
                                           structure=">b 7b")
+        if temperatures is None:
+            return False
         for id in temperatures:
             temperatures[id] = temperatures[id] - 40
         return temperatures

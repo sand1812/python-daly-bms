@@ -13,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
--
+- Bluetooth: a read that got no answer returns `False` (`[]` for errors) instead of falling back to the
+  serial read of the base class (a coroutine never awaited, then `TypeError` in `struct.unpack`)
+- Bluetooth: cell voltages and temperatures return `False` when the status (number of cells) cannot be read
+- Cell voltages and temperatures: frames put back in order by their number, a frame received twice counted
+  once, `False` when frames are missing (was `TypeError: 'NoneType' object is not iterable`)
 
 ## [0.3.0] - 2021-10-25
 

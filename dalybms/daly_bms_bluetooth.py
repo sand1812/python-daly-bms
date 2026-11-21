@@ -138,54 +138,58 @@ class DalyBMSBluetooth(DalyBMS):
         return result
 
     # wrap all sync functions so that they can be awaited
+    async def _parsed(self, command, parse, failed=False, **kwargs):
+        """The BMS's answer to `command`, parsed by the base class, or `failed` when no answer came:
+        the base class must not be called without data, it would read over the serial port instead
+        (self._read_request is the Bluetooth coroutine here, never awaited there)."""
+        response_data = await self._read_request(command, **kwargs)
+        if not response_data:
+            return failed
+        return parse(response_data=response_data)
+
     async def get_soc(self, response_data=None):
-        response_data = await self._read_request("90")
-        return super().get_soc(response_data=response_data)
+        return await self._parsed("90", super().get_soc)
 
     async def get_cell_voltage_range(self, response_data=None):
-        response_data = await self._read_request("91")
-        return super().get_cell_voltage_range(response_data=response_data)
+        return await self._parsed("91", super().get_cell_voltage_range)
 
     async def get_temperature_range(self, response_data=None):
-        response_data = await self._read_request("92")
-        return super().get_temperature_range(response_data=response_data)
+        return await self._parsed("92", super().get_temperature_range)
 
     async def get_mosfet_status(self, response_data=None):
-        response_data = await self._read_request("93")
-        return super().get_mosfet_status(response_data=response_data)
+        return await self._parsed("93", super().get_mosfet_status)
 
     async def get_status(self, response_data=None):
-        response_data = await self._read_request("94")
-        return super().get_status(response_data=response_data)
+        return await self._parsed("94", super().get_status)
 
     async def get_cell_voltages(self, response_data=None):
         # required to get the number of cells
         if not self.status:
             await self.get_status()
+            if not self.status:
+                return False
 
         max_responses = self._calc_num_responses(status_field="cell_voltages")
         if not max_responses:
-            return
-        response_data = await self._read_request("95", max_responses=max_responses)
-
-        return super().get_cell_voltages(response_data=response_data)
+            return False
+        return await self._parsed("95", super().get_cell_voltages, max_responses=max_responses)
 
     async def get_temperatures(self, response_data=None):
+        if not self.status:
+            await self.get_status()
+            if not self.status:
+                return False
 
         max_responses = self._calc_num_responses(status_field="temperatures")
         if not max_responses:
-            return
-
-        response_data = await self._read_request("96", max_responses=max_responses)
-        return super().get_temperatures(response_data=response_data)
+            return False
+        return await self._parsed("96", super().get_temperatures, max_responses=max_responses)
 
     async def get_balancing_status(self, response_data=None):
-        response_data = await self._read_request("97")
-        return super().get_balancing_status(response_data=response_data)
+        return await self._parsed("97", super().get_balancing_status)
 
     async def get_errors(self, response_data=None):
-        response_data = await self._read_request("98")
-        return super().get_errors(response_data=response_data)
+        return await self._parsed("98", super().get_errors, failed=[])
 
     # Set SoC. Value is float from 0.0 to 100.0
     async def set_soc(self, value):
